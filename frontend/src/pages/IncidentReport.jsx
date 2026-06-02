@@ -9,7 +9,7 @@ const Dashboard = (props) => {
 
   const getAllIncident = async () => {
     try {
-      const { data } = await axios.get('https://womensecbackend.onrender.com/api/v1/incidents')
+      const { data } = await axios.get('http://localhost:8000/api/v1/incidents')
 
       if (data) {
         setincidentreport(data)

@@ -27,7 +27,7 @@ const Emergency = () => {
       };
       console.log(payload);
       const res = await fetch(
-        "https://womensecbackend.onrender.com/api/v1/emergency/emergencypressed",
+        "http://localhost:8000/api/v1/emergency/emergencypressed",
         {
           method: "POST",
           body: JSON.stringify(payload),

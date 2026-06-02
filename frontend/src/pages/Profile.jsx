@@ -43,7 +43,7 @@ const Profile = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const { data } = await axios.put("https://womensecbackend.onrender.com/api/v1/users/update", {
+      const { data } = await axios.put("http://localhost:8000/api/v1/users/update", {
         uid,
         uname,
         email,

@@ -63,18 +63,19 @@ const Register = () => {
             return false;
         }
         try {
-            const res = await axios.post('https://womensecbackend.onrender.com/api/v1/users/register',
+            const res = await axios.post('http://localhost:8000/api/v1/users/register',
                 { uname, email, phone, password, emergencyNo, emergencyMail, pincode });
 
             if (res.status === 201) {
                 toast.success('Register Successfully')
                 navigate('/login')
             }
-            if (res.status == 400) {
-                toast.error('Email Already Exist! Please Login')
-            }
         } catch (err) {
-            toast.error("Error While Register");
+            if (err.response && err.response.status === 400) {
+                toast.error(err.response.data.message || 'Email Already Exist! Please Login');
+            } else {
+                toast.error("Error While Register");
+            }
             console.log(err)
         }
     }
