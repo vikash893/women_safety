@@ -1,0 +1,205 @@
+/* AegisHer CSS - High-Contrast Accessible Design Tokens */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --aegis-bg-slate-950: #030712;
+  --aegis-bg-slate-900: #0f172a;
+  --aegis-bg-slate-800: #1e293b;
+  --aegis-text-slate-100: #f8fafc;
+  --aegis-text-slate-350: #cbd5e1;
+  --aegis-text-slate-400: #94a3b8;
+  --aegis-rose-600: #e11d48;
+  --aegis-rose-500: #f43f5e;
+  --aegis-red-650: #dc2626;
+  --aegis-emerald-500: #10b981;
+  --aegis-emerald-600: #059669;
+  --aegis-font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.aegis-container {
+  font-family: var(--aegis-font-sans);
+  background-color: var(--aegis-bg-slate-950);
+  color: var(--aegis-text-slate-100);
+  min-height: 100vh;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  padding-top: 120px; /* Offset for your fixed-top Navbar */
+  padding-bottom: 60px;
+}
+
+/* Glassmorphism elements */
+.aegis-card {
+  background: rgba(15, 23, 42, 0.65) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5) !important;
+  color: var(--aegis-text-slate-100) !important;
+  transition: all 0.3s ease;
+}
+
+.aegis-card-glow {
+  background: rgba(15, 23, 42, 0.7) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(244, 63, 94, 0.25) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 0 25px rgba(244, 63, 94, 0.08) !important;
+  color: var(--aegis-text-slate-100) !important;
+  transition: all 0.3s ease;
+}
+
+/* Animations for emergency events */
+@keyframes aegis-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7), 0 0 0 0 rgba(244, 63, 94, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 22px rgba(239, 68, 68, 0), 0 0 0 45px rgba(244, 63, 94, 0.2);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0), 0 0 0 0 rgba(244, 63, 94, 0);
+  }
+}
+
+@keyframes aegis-ripple {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.aegis-animate-pulse {
+  animation: aegis-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.aegis-animate-ripple {
+  animation: aegis-ripple 3s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+}
+
+/* Reusable buttons */
+.aegis-btn-panic {
+  background: var(--aegis-rose-600) !important;
+  border: 4px solid rgba(254, 205, 211, 0.15) !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.15em !important;
+  box-shadow: 0 15px 35px rgba(225, 29, 72, 0.35) !important;
+  border-radius: 50% !important;
+  width: 200px !important;
+  height: 200px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 2.25rem !important;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+  cursor: pointer !important;
+}
+
+.aegis-btn-panic:active {
+  transform: scale(0.95) !important;
+}
+
+.aegis-btn-primary {
+  background-color: var(--aegis-rose-600) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+  border-radius: 12px !important;
+  padding: 12px 24px !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2) !important;
+  cursor: pointer !important;
+}
+
+.aegis-btn-primary:hover {
+  background-color: var(--aegis-rose-500) !important;
+  transform: translateY(-1px) !important;
+}
+
+.aegis-btn-secondary {
+  background-color: var(--aegis-bg-slate-800) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  color: var(--aegis-text-slate-100) !important;
+  border-radius: 12px !important;
+  padding: 12px 24px !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease !important;
+  cursor: pointer !important;
+}
+
+.aegis-btn-secondary:hover {
+  background-color: #334155 !important;
+  transform: translateY(-1px) !important;
+}
+
+.aegis-btn-outline {
+  background-color: transparent !important;
+  border: 1px solid var(--aegis-bg-slate-800) !important;
+  color: var(--aegis-text-slate-350) !important;
+  border-radius: 12px !important;
+  padding: 12px 24px !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease !important;
+  cursor: pointer !important;
+}
+
+.aegis-btn-outline:hover {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  color: #fff !important;
+}
+
+/* Custom form inputs */
+.aegis-input {
+  background-color: rgba(3, 7, 18, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px !important;
+  padding: 10px 16px !important;
+  color: #fff !important;
+  transition: border-color 0.2s ease !important;
+}
+
+.aegis-input:focus {
+  outline: none !important;
+  border-color: var(--aegis-rose-500) !important;
+  box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.1) !important;
+}
+
+/* Blueprint path moving animation */
+@keyframes aegis-dash {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+.aegis-route-dash {
+  animation: aegis-dash 10s linear infinite;
+}
+
+/* Scrollbars inside lists */
+.aegis-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.aegis-scroll::-webkit-scrollbar-track {
+  background: rgba(3, 7, 18, 0.4);
+  border-radius: 10px;
+}
+
+.aegis-scroll::-webkit-scrollbar-thumb {
+  background: var(--aegis-bg-slate-800);
+  border-radius: 10px;
+}
+
+.aegis-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--aegis-text-slate-400);
+}
