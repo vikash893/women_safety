@@ -20,6 +20,7 @@ import HeroCaro from './pages/HeroCaro';
 import AegisHerPanic from './pages/AegisHerPanic';
 import AegisHerVolunteer from './pages/AegisHerVolunteer';
 import AegisHerProfile from './pages/AegisHerProfile';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
   return (
@@ -28,7 +29,6 @@ function App() {
       <Route path='/' element={<Home />} />
       <Route path='/caro' element={<HeroCaro />} />
       <Route path='/about' element={<AboutUs2 />} />
-      <Route path='/*' element={<NotFound/>} />
       <Route path='/dashboard/profile' element={<Profile/>} />
       <Route path='/contact' element={<ContactUs/>} />
       <Route path='/login' element={<Login/>} />
@@ -44,6 +44,10 @@ function App() {
       <Route path='/aegisher' element={<AegisHerPanic />} />
       <Route path='/aegisher-volunteer' element={<AegisHerVolunteer />} />
       <Route path='/aegisher-profile' element={<AegisHerProfile />} />
+      <Route path='/admin' element={<AdminDashboard />} />
+
+      {/* Catch-all 404 — must be last */}
+      <Route path='*' element={<NotFound/>} />
       </Routes>
       <Toaster />
     </Router>

@@ -1,5 +1,10 @@
 const mongoose = require("mongoose");
 
+const TrustedCircleSchema = mongoose.Schema({
+  name: { type: String, required: true },
+  members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
+});
+
 const UserSchema = mongoose.Schema(
   {
     uname: {
@@ -37,11 +42,9 @@ const UserSchema = mongoose.Schema(
     },
     emergencyNo: {
       type: Number,
-
     },
     emergencyMail: {
       type: String,
-     
     },
     pinCode: {
       type: Number,
@@ -51,9 +54,48 @@ const UserSchema = mongoose.Schema(
     },
     role: {
       type: Number,
-      enum: [0, 1],
+      enum: [0, 1, 2], // 0: User/Victim, 1: Volunteer, 2: Admin
       default: 0,
     },
+    
+    // Safety Profile Features
+    bloodGroup: {
+      type: String,
+      enum: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", ""],
+      default: ""
+    },
+    medicalNotes: {
+      type: String,
+      default: ""
+    },
+
+    // Volunteer Tracker Fields
+    isOnline: {
+      type: Boolean,
+      default: false
+    },
+    currentCoords: {
+      latitude: { type: Number, default: 28.6139 },
+      longitude: { type: Number, default: 77.2090 }
+    },
+    responseCount: {
+      type: Number,
+      default: 0
+    },
+    suspicionScore: {
+      type: Number,
+      default: 0 // score calculated for fake alert detection
+    },
+
+    // Trusted Circles
+    trustedCircles: [TrustedCircleSchema],
+
+    // Security Refresh Tokens
+    refreshToken: {
+      type: String,
+      default: null
+    },
+
     extraphone1:{
       type: String
     },

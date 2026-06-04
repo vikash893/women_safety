@@ -11,7 +11,9 @@ import {
   FiNavigation, 
   FiUsers, 
   FiXCircle, 
-  FiInfo 
+  FiInfo,
+  FiMic,
+  FiMicOff
 } from 'react-icons/fi';
 import '../styles/AegisHer.css';
 
@@ -30,7 +32,11 @@ export function AegisHerPanic() {
     triggerSOS,
     cancelSOS,
     toggleBuzzer,
-    contacts
+    contacts,
+    voiceSosEnabled,
+    setVoiceSosEnabled,
+    voiceListening,
+    voiceCurrentLang
   } = useSafety();
 
   const [silentMode, setSilentMode] = useState(false);
@@ -91,6 +97,40 @@ export function AegisHerPanic() {
                     className="form-check-input bg-secondary border-none"
                     style={{ width: '2.5em', height: '1.25em', cursor: 'pointer', accentColor: '#f43f5e' }}
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* Voice SOS Toggle */}
+            <div className="aegis-card p-3 w-100" style={{ maxWidth: '420px' }}>
+              <div className="d-flex align-items-center justify-content-between">
+                <div className="text-start">
+                  <div className="d-flex align-items-center gap-2">
+                    <span className="fw-bold text-light d-block" style={{ fontSize: '13.5px' }}>Voice-Activated SOS</span>
+                    {voiceListening && (
+                      <span className="badge rounded-pill aegis-voice-pulse" style={{ fontSize: '9px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}>
+                        Listening
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-muted" style={{ fontSize: '11px' }}>
+                    {voiceSosEnabled
+                      ? `Monitoring in ${voiceCurrentLang === 'hi-IN' ? 'Hindi' : 'English'} — Say "Help me" or "बचाओ"`
+                      : 'Enable to trigger SOS with voice commands (English + Hindi)'
+                    }
+                  </span>
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  {voiceSosEnabled ? <FiMic size={16} color="#10b981" /> : <FiMicOff size={16} color="#64748b" />}
+                  <div className="form-check form-switch m-0">
+                    <input
+                      type="checkbox"
+                      checked={voiceSosEnabled}
+                      onChange={(e) => setVoiceSosEnabled(e.target.checked)}
+                      className="form-check-input bg-secondary border-none"
+                      style={{ width: '2.5em', height: '1.25em', cursor: 'pointer' }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

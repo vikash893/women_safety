@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useWebBuzzer } from '../hooks/useWebBuzzer';
-import { useGeolocation } from '../hooks/useGeolocation';
+import { useLiveTracking } from '../hooks/useLiveTracking';
+import { useVoiceSOS } from '../hooks/useVoiceSOS';
 import { useAuth } from './auth';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const SafetyContext = createContext();
 
@@ -14,322 +17,376 @@ export function useSafety() {
 }
 
 export function SafetyProvider({ children }) {
-  // --- 1. Load User Session from Auth context ---
   const [auth] = useAuth();
-  const { startBuzzer, stopBuzzer } = useWebBuzzer();
-  const { location: gpsLocation, error: gpsError, startTracking, stopTracking } = useGeolocation();
-
-  // A. User Session State (Syncs with user's real context if logged in, otherwise mock)
+  
+  // ─── Local user configuration ──────────────────────────────────────
   const [user, setUser] = useState({
-    id: 'usr-demo',
-    name: 'Vishnu Singh',
+    id: 'demo-user',
+    name: 'AegisHer User',
     role: 'victim',
-    phoneNumber: '+91 98765 43210',
+    phoneNumber: '+91 99999 88888',
     safetyProfile: {
-      bloodGroup: 'O+',
+      bloodGroup: 'B+',
       medicalNotes: 'Asthmatic, carries inhaler.'
     }
   });
 
+  // Sync user object with database authentication session details
   useEffect(() => {
     if (auth?.user) {
       setUser({
-        id: auth.user._id || 'usr-database',
-        name: auth.user.username || auth.user.name || 'AegisHer User',
-        role: auth.user.role || 'victim',
-        phoneNumber: auth.user.emergencyNo || '+91 99999 88888',
+        id: auth.user._id,
+        name: auth.user.uname || auth.user.name || 'AegisHer User',
+        role: auth.user.role === 1 ? 'volunteer' : auth.user.role === 2 ? 'admin' : 'victim',
+        phoneNumber: auth.user.phoneNo || '+91 99999 88888',
         safetyProfile: {
-          bloodGroup: auth.user.bloodGroup || 'B+',
-          medicalNotes: auth.user.medicalNotes || 'Crucial health details.'
+          bloodGroup: auth.user.bloodGroup || 'O+',
+          medicalNotes: auth.user.medicalNotes || ''
         }
       });
     }
   }, [auth]);
 
-  // B. Emergency Contacts State
-  const [contacts, setContacts] = useState([
-    { contactId: 'c1', name: 'Rohan Sharma (Brother)', phoneNumber: '+91 99999 88888', isPriority: true },
-    { contactId: 'c2', name: 'Pooja Verma (Best Friend)', phoneNumber: '+91 88888 77777', isPriority: true }
-  ]);
+  // ─── Hooks and State parameters ────────────────────────────────────
+  const { startSiren, stopSiren } = useWebBuzzer();
+  const [activeIncidentId, setActiveIncidentId] = useState(null);
+  
+  const {
+    isConnected,
+    location: gpsLocation,
+    routeHistory,
+    responders: socketResponders,
+    messages,
+    typingUsers,
+    startTracking,
+    stopTracking,
+    emitTriggerSOS,
+    sendMessage,
+    emitTypingStatus
+  } = useLiveTracking(user.id, user.role, activeIncidentId);
 
-  // C. Active SOS State
   const [isSosTriggered, setIsSosTriggered] = useState(false);
-  const [incidentId, setIncidentId] = useState(null);
   const [sosStatus, setSosStatus] = useState('resolved'); // 'active' | 'responded' | 'resolved'
   const [buzzerEnabled, setBuzzerEnabled] = useState(false);
   const [assignedResponders, setAssignedResponders] = useState([]);
   const [victimLocation, setVictimLocation] = useState(null);
+  
+  // AI Metrics
+  const [riskScore, setRiskScore] = useState(0);
+  const [suspicionScore, setSuspicionScore] = useState(0);
+  const [recommendations, setRecommendations] = useState([]);
 
-  // D. Volunteer State
+  // Voice Wake settings
+  const [voiceSosEnabled, setVoiceSosEnabled] = useState(false);
+
+  // Group Circles
+  const [circles, setCircles] = useState([]);
+  const [contacts, setContacts] = useState([]);
+
+  // Volunteer online states
   const [isOnline, setIsOnline] = useState(false);
   const [incomingAlerts, setIncomingAlerts] = useState([]);
   const [activeMission, setActiveMission] = useState(null);
 
-  const simulationIntervalRef = useRef(null);
-  const autoResponderTimeoutRef = useRef(null);
-
-  // Sync Location Coordinates
+  // Sync coords from tracking hook
   useEffect(() => {
     if (isSosTriggered && gpsLocation) {
       setVictimLocation(gpsLocation);
     }
   }, [isSosTriggered, gpsLocation]);
 
+  // Load circles and profiles when auth session state is active
   useEffect(() => {
-    return () => {
-      stopBuzzer();
-      stopTracking();
-      if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
-      if (autoResponderTimeoutRef.current) clearTimeout(autoResponderTimeoutRef.current);
-    };
-  }, [stopBuzzer, stopTracking]);
+    if (auth?.token) {
+      fetchTrustedCircles();
+    }
+  }, [auth]);
 
-  // --- 2. Action Logic ---
-  const addContact = (newContact) => {
-    setContacts((prev) => [
-      ...prev,
-      { ...newContact, contactId: `c-${Date.now()}` }
-    ]);
+  const fetchTrustedCircles = async () => {
+    try {
+      const res = await axios.get("http://localhost:8000/api/v1/users/circles", {
+        headers: { Authorization: `Bearer ${auth.token}` }
+      });
+      if (res.status === 200) {
+        setCircles(res.data);
+        // Map contacts array for legacy compatibility
+        const legacyContacts = [];
+        res.data.forEach(circle => {
+          circle.members.forEach(member => {
+            legacyContacts.push({
+              contactId: member._id,
+              name: member.uname,
+              phoneNumber: member.phoneNo || "+91 99999 88888",
+              isPriority: true
+            });
+          });
+        });
+        setContacts(legacyContacts);
+      }
+    } catch (err) {
+      console.error("Failed to load circles:", err);
+    }
   };
 
-  const removeContact = (id) => {
-    setContacts((prev) => prev.filter((c) => c.contactId !== id));
+  const createCircle = async (name) => {
+    try {
+      const res = await axios.post(
+        "http://localhost:8000/api/v1/users/circles",
+        { name },
+        { headers: { Authorization: `Bearer ${auth.token}` } }
+      );
+      if (res.status === 201) {
+        toast.success(`Trusted circle "${name}" created.`);
+        fetchTrustedCircles();
+      }
+    } catch (err) {
+      toast.error("Failed to create circle.");
+    }
   };
 
-  // SOS Distress Triggers
-  const triggerSOS = (loudSiren = true) => {
+  const deleteCircle = async (circleId) => {
+    try {
+      await axios.delete(`http://localhost:8000/api/v1/users/circles/${circleId}`, {
+        headers: { Authorization: `Bearer ${auth.token}` }
+      });
+      toast.success("Circle deleted.");
+      fetchTrustedCircles();
+    } catch (err) {
+      toast.error("Failed to delete circle.");
+    }
+  };
+
+  const addCircleMember = async (circleId, memberEmail) => {
+    try {
+      await axios.post(
+        "http://localhost:8000/api/v1/users/circles/add-member",
+        { circleId, memberEmail },
+        { headers: { Authorization: `Bearer ${auth.token}` } }
+      );
+      toast.success("Circle member added.");
+      fetchTrustedCircles();
+    } catch (err) {
+      toast.error("Member search or registration issue.");
+    }
+  };
+
+  // ─── Voice activated SOS callback trigger ─────────────────────────
+  const triggerVoiceSOS = () => {
+    if (isSosTriggered) return;
+    toast.error("🗣️ VOICE SOS TRIGGER ACTION ENFORCED!");
+    triggerSOS(true);
+  };
+
+  const voiceSOS = useVoiceSOS(triggerVoiceSOS, voiceSosEnabled);
+
+  // ─── SOS Distress Triggers ─────────────────────────────────────────
+  const triggerSOS = async (loudSiren = true) => {
     if (isSosTriggered) return;
 
-    const newIncidentId = `inc-${Math.floor(100000 + Math.random() * 900000)}`;
-    setIncidentId(newIncidentId);
-    setIsSosTriggered(true);
-    setSosStatus('active');
-    setBuzzerEnabled(loudSiren);
-    setAssignedResponders([]);
-
-    startTracking();
-
-    if (loudSiren) {
-      startBuzzer();
+    // Capture baseline location coords
+    let initialCoords = gpsLocation;
+    if (!initialCoords) {
+      // Fallback coordinate mapping
+      initialCoords = {
+        latitude: 28.6139,
+        longitude: 77.2090,
+        accuracyInMeters: 10,
+        timestamp: Date.now()
+      };
+      setVictimLocation(initialCoords);
     }
 
-    const initialLocation = gpsLocation || {
-      latitude: 28.6139,
-      longitude: 77.2090,
-      accuracyInMeters: 12,
-      timestamp: Date.now(),
-      isMocked: true
-    };
-    setVictimLocation(initialLocation);
+    try {
+      // 1. Post to API to create DB incident and fire notify engines
+      const payload = {
+        userId: user.id,
+        lat: initialCoords.latitude,
+        long: initialCoords.longitude
+      };
 
-    // Propagate alarm alerts to Volunteer network
-    const newAlert = {
-      incidentId: newIncidentId,
-      victimName: user.name,
-      victimPhone: user.phoneNumber,
-      bloodGroup: user.safetyProfile.bloodGroup,
-      medicalNotes: user.safetyProfile.medicalNotes,
-      location: initialLocation,
-      distanceKm: 1.4,
-      timestamp: Date.now()
-    };
+      const res = await axios.post("http://localhost:8000/api/v1/emergency/emergencypressed", payload, {
+        headers: { Authorization: `Bearer ${auth?.token}` }
+      });
 
-    setIncomingAlerts([newAlert]);
+      if (res.status === 200) {
+        const { incidentId, riskScore, suspicionScore } = res.data;
 
-    // Dispatch Simulator fallbacks (nearby responders respond after 4s)
-    autoResponderTimeoutRef.current = setTimeout(() => {
-      simulateAutoResponderAcceptance();
-    }, 4500);
+        setActiveIncidentId(incidentId);
+        setIsSosTriggered(true);
+        setSosStatus("active");
+        setBuzzerEnabled(loudSiren);
+        setRiskScore(riskScore);
+        setSuspicionScore(suspicionScore);
+
+        // Start continuous map tracker
+        startTracking();
+
+        // Relay distress signal via Sockets
+        emitTriggerSOS(incidentId, initialCoords);
+
+        if (loudSiren) {
+          startSiren();
+        }
+
+        toast.success("🔴 DISTRESS BEACONS BROADCASTED!");
+      }
+    } catch (err) {
+      console.error("SOS Trigger failure:", err);
+      toast.error("SOS Dispatch Gateway Timeout.");
+    }
   };
 
-  const cancelSOS = () => {
+  const cancelSOS = async () => {
+    if (!activeIncidentId) return;
+
+    try {
+      // Post resolve status to API
+      await axios.patch(`http://localhost:8000/api/v1/emergency/${activeIncidentId}`, {}, {
+        headers: { Authorization: `Bearer ${auth?.token}` }
+      });
+    } catch (err) {
+      console.error("Failed to update status on API:", err);
+    }
+
     setIsSosTriggered(false);
-    setIncidentId(null);
-    setSosStatus('resolved');
+    setActiveIncidentId(null);
+    setSosStatus("resolved");
     setBuzzerEnabled(false);
     setAssignedResponders([]);
     setIncomingAlerts([]);
     setActiveMission(null);
 
-    stopBuzzer();
+    stopSiren();
     stopTracking();
     setVictimLocation(null);
-
-    if (simulationIntervalRef.current) {
-      clearInterval(simulationIntervalRef.current);
-      simulationIntervalRef.current = null;
-    }
-    if (autoResponderTimeoutRef.current) {
-      clearTimeout(autoResponderTimeoutRef.current);
-      autoResponderTimeoutRef.current = null;
-    }
+    toast.success("SOS distress cancelled safely.");
   };
 
   const toggleBuzzer = () => {
     if (buzzerEnabled) {
-      stopBuzzer();
+      stopSiren();
       setBuzzerEnabled(false);
     } else {
-      startBuzzer();
+      startSiren();
       setBuzzerEnabled(true);
     }
   };
 
-  // Volunteer operations
+  // Sync live responders from sockets
+  useEffect(() => {
+    if (socketResponders.length > 0) {
+      setAssignedResponders(socketResponders);
+      setSosStatus("responded");
+    }
+  }, [socketResponders]);
+
+  // ─── Volunteer Operations ─────────────────────────────────────────
   const toggleOnline = () => {
     setIsOnline((prev) => {
       const nextOnline = !prev;
       if (!nextOnline) {
         setIncomingAlerts([]);
         setActiveMission(null);
-        if (simulationIntervalRef.current) {
-          clearInterval(simulationIntervalRef.current);
-          simulationIntervalRef.current = null;
-        }
+        stopTracking();
       } else {
-        if (isSosTriggered && incidentId) {
-          setIncomingAlerts([
-            {
-              incidentId,
-              victimName: user.name,
-              victimPhone: user.phoneNumber,
-              bloodGroup: user.safetyProfile.bloodGroup,
-              medicalNotes: user.safetyProfile.medicalNotes,
-              location: victimLocation || { latitude: 28.6139, longitude: 77.2090 },
-              distanceKm: 1.4,
-              timestamp: Date.now()
-            }
-          ]);
-        }
+        startTracking();
       }
       return nextOnline;
     });
   };
 
   const acceptIncident = (alertId) => {
+    // Locate target dispatch alert
     const alertObj = incomingAlerts.find((a) => a.incidentId === alertId);
     if (!alertObj) return;
 
-    if (autoResponderTimeoutRef.current) {
-      clearTimeout(autoResponderTimeoutRef.current);
-      autoResponderTimeoutRef.current = null;
-    }
+    setActiveIncidentId(alertId);
+    setSosStatus("responded");
 
-    setSosStatus('responded');
-    
     const activeVolMission = {
       ...alertObj,
-      status: 'navigating',
-      volunteerCoords: {
-        latitude: alertObj.location.latitude - 0.01,
-        longitude: alertObj.location.longitude - 0.006
-      }
+      status: "navigating",
+      volunteerCoords: gpsLocation || { latitude: 28.6039, longitude: 77.2030 }
     };
     setActiveMission(activeVolMission);
     setIncomingAlerts([]);
 
-    const humanVolunteer = {
-      responderId: 'vol-aegis',
-      name: 'Sneha Rao (Aegis Guardian)',
-      phoneNumber: '+91 96111 54321',
-      distanceKm: 1.4,
-      isAutoSimulated: false
-    };
-    setAssignedResponders([humanVolunteer]);
-
-    startLiveRouteSimulation('vol-aegis', 1.4);
+    // Trigger responder accept socket call
+    // Hook handles location routing heartbeats automatically
+    toast.success("Assigned to emergency coordinate grid.");
   };
 
   const resolveActiveMission = () => {
     cancelSOS();
   };
 
-  const simulateAutoResponderAcceptance = () => {
-    if (sosStatus !== 'active') return;
-
-    setSosStatus('responded');
-
-    const botVolunteer = {
-      responderId: 'vol-bot',
-      name: 'Vikram Singh (Aegis Guardian)',
-      phoneNumber: '+91 98888 22112',
-      distanceKm: 0.9,
-      isAutoSimulated: true
-    };
-
-    setAssignedResponders([botVolunteer]);
-    startLiveRouteSimulation('vol-bot', 0.9);
-  };
-
-  const startLiveRouteSimulation = (responderId, startDistance) => {
-    if (simulationIntervalRef.current) {
-      clearInterval(simulationIntervalRef.current);
-    }
-
-    let currentDistance = startDistance;
-
-    simulationIntervalRef.current = setInterval(() => {
-      currentDistance = Math.max(0, currentDistance - 0.15);
-
-      setActiveMission((prev) => {
-        if (!prev) return null;
-        const lerpFactor = (startDistance - currentDistance) / startDistance;
-        const newLat = prev.location.latitude - 0.01 * (1 - lerpFactor);
-        const newLng = prev.location.longitude - 0.006 * (1 - lerpFactor);
-        
-        return {
-          ...prev,
-          distanceKm: parseFloat(currentDistance.toFixed(2)),
-          volunteerCoords: { latitude: newLat, longitude: newLng }
-        };
-      });
-
-      setAssignedResponders((prevList) =>
-        prevList.map((res) =>
-          res.responderId === responderId
-            ? { ...res, distanceKm: parseFloat(currentDistance.toFixed(2)) }
-            : res
-        )
-      );
-
-      if (currentDistance <= 0) {
-        clearInterval(simulationIntervalRef.current);
-        simulationIntervalRef.current = null;
-        
-        setActiveMission((prev) => prev ? { ...prev, status: 'arrived', distanceKm: 0 } : null);
-      }
-    }, 2500);
-  };
-
   const changeUserRole = (role) => {
+    // Updates role local state
     setUser((prev) => ({ ...prev, role }));
     cancelSOS();
   };
 
+  const addContact = (newContact) => {
+    // Add member locally (fallback for mock mode)
+    setContacts((prev) => [...prev, { ...newContact, contactId: `c-${Date.now()}` }]);
+  };
+
+  const removeContact = (id) => {
+    setContacts((prev) => prev.filter((c) => c.contactId !== id));
+  };
+
   return (
-    <SafetyContext.Provider value={{
-      user,
-      contacts,
-      addContact,
-      removeContact,
-      isSosTriggered,
-      incidentId,
-      sosStatus,
-      buzzerEnabled,
-      victimLocation,
-      assignedResponders,
-      triggerSOS,
-      cancelSOS,
-      toggleBuzzer,
-      gpsError,
-      isOnline,
-      incomingAlerts,
-      activeMission,
-      toggleOnline,
-      acceptIncident,
-      resolveActiveMission,
-      changeUserRole
-    }}>
+    <SafetyContext.Provider
+      value={{
+        user,
+        contacts,
+        addContact,
+        removeContact,
+        isSosTriggered,
+        incidentId: activeIncidentId,
+        sosStatus,
+        buzzerEnabled,
+        victimLocation,
+        assignedResponders,
+        triggerSOS,
+        cancelSOS,
+        toggleBuzzer,
+        isOnline,
+        incomingAlerts,
+        activeMission,
+        toggleOnline,
+        acceptIncident,
+        resolveActiveMission,
+        changeUserRole,
+        
+        // Upgraded Real-time Systems
+        isConnected,
+        routeHistory,
+        messages,
+        typingUsers,
+        sendMessage,
+        emitTypingStatus,
+
+        // AI engine analysis reports
+        riskScore,
+        suspicionScore,
+        recommendations,
+
+        // Voice wakeup controls
+        voiceSosEnabled,
+        setVoiceSosEnabled,
+        voiceListening: voiceSOS.isListening,
+        voiceError: voiceSOS.error,
+        voiceLastHeard: voiceSOS.lastHeard,
+        voiceCurrentLang: voiceSOS.currentLang,
+
+        // Group circle controls
+        circles,
+        createCircle,
+        deleteCircle,
+        addCircleMember
+      }}
+    >
       {children}
     </SafetyContext.Provider>
   );

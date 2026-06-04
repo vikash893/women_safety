@@ -1,0 +1,87 @@
+version: "3.9"
+
+services:
+  # ═══════════════════════════════════════════════════════
+  #  MongoDB — Primary Data Store
+  # ═══════════════════════════════════════════════════════
+  mongo:
+    image: mongo:7
+    container_name: aegisher-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - aegisher-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ═══════════════════════════════════════════════════════
+  #  Backend — Node.js / Express / Socket.IO API Server
+  # ═══════════════════════════════════════════════════════
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aegisher-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      PORT: 8000
+      MONGO_URL: mongodb://mongo:27017/women_safety
+      ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET:-change_me_in_production}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-change_me_in_production}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      EMAIL: ${EMAIL:-}
+      PASSWORD: ${PASSWORD:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+      MAPMYINDIA_API_KEY: ${MAPMYINDIA_API_KEY:-}
+    networks:
+      - aegisher-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/api/v1/users/get_user_info"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+
+  # ═══════════════════════════════════════════════════════
+  #  Frontend — React App served via Nginx
+  # ═══════════════════════════════════════════════════════
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: aegisher-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - aegisher-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mongo_data:
+    driver: local
+
+networks:
+  aegisher-net:
+    driver: bridge
